@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GSC Weekend Filter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      background: #fff;
+      color: #1a1a1a;
+      width: 260px;
+      padding: 16px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a73e8;
+    }
+
+    /* ── Toggle switch ── */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+    .switch input { display: none; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #ccc;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    input:checked + .slider { background: #1a73e8; }
+    input:checked + .slider::before { transform: translateX(16px); }
+
+    /* ── Sections ── */
+    .section {
+      border: 1px solid #e8eaed;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #5f6368;
+      margin-bottom: 10px;
+    }
+
+    /* ── Checkbox rows ── */
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .check-row input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: #1a73e8;
+      cursor: pointer;
+    }
+    .check-row span { flex: 1; }
+    .day-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    .badge-sat { background: #fce8e6; color: #c5221f; }
+    .badge-sun { background: #fce8e6; color: #c5221f; }
+    .badge-hol { background: #e8f0fe; color: #1a73e8; }
+
+    /* ── Country selector ── */
+    #country-row {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #country-row label { color: #5f6368; white-space: nowrap; }
+    #country {
+      flex: 1;
+      padding: 4px 6px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #fff;
+    }
+    #fetch-btn {
+      padding: 4px 8px;
+      border: 1px solid #1a73e8;
+      border-radius: 4px;
+      background: #fff;
+      color: #1a73e8;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #fetch-btn:hover { background: #e8f0fe; }
+    #fetch-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Status bar ── */
+    #status {
+      font-size: 11px;
+      color: #5f6368;
+      margin-top: 10px;
+      min-height: 16px;
+      text-align: center;
+    }
+    #status.ok  { color: #137333; }
+    #status.err { color: #c5221f; }
+
+    /* Disabled overlay */
+    body.off .section { opacity: 0.45; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>GSC Weekend Filter</h1>
+    <label class="switch">
+      <input type="checkbox" id="enabled" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ocultar del gráfico</div>
+
+    <label class="check-row">
+      <input type="checkbox" id="hideSaturday" />
+      <span>Sábados</span>
+      <span class="day-badge badge-sat">Sáb</span>
+    </label>
+
+    <label class="check-row">
+      <input type="checkbox" id="hideSunday" />
+      <span>Domingos</span>
+      <span class="day-badge badge-sun">Dom</span>
+    </label>
+
+    <label class="check-row">
+      <input type="checkbox" id="hideHolidays" />
+      <span>Festivos</span>
+      <span class="day-badge badge-hol">Fest</span>
+    </label>
+
+    <div id="country-row">
+      <label for="country">País</label>
+      <select id="country"></select>
+      <button id="fetch-btn">Actualizar</button>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
