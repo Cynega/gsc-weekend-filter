@@ -392,25 +392,23 @@
     } else {
       run();
     }
+
+    // Called on every SPA navigation (pushState / replaceState / popstate).
+    // Retries the embedded scan several times because GSC may inject new inline
+    // script tags progressively as the new view renders.
+    function onNavigation() {
+      _embeddedDone = false; _domEmbeddedDone = false; _jsonSeriesDone = false;
+      setTimeout(tryExtractFromEmbedded,    1500);
+      setTimeout(tryExtractFromDomEmbedded, 1800);
+      setTimeout(() => { if (!_embeddedDone) tryExtractFromEmbedded(); }, 4000);
+      setTimeout(() => { if (!_embeddedDone) tryExtractFromEmbedded(); }, 8000);
+    }
+
     const origPush    = history.pushState.bind(history);
     const origReplace = history.replaceState.bind(history);
-    history.pushState    = function (...a) {
-      origPush(...a);
-      _embeddedDone = false; _domEmbeddedDone = false; _jsonSeriesDone = false;
-      setTimeout(tryExtractFromEmbedded,    1500);
-      setTimeout(tryExtractFromDomEmbedded, 1800);
-    };
-    history.replaceState = function (...a) {
-      origReplace(...a);
-      _embeddedDone = false; _domEmbeddedDone = false; _jsonSeriesDone = false;
-      setTimeout(tryExtractFromEmbedded,    1500);
-      setTimeout(tryExtractFromDomEmbedded, 1800);
-    };
-    window.addEventListener('popstate', () => {
-      _embeddedDone = false; _domEmbeddedDone = false; _jsonSeriesDone = false;
-      setTimeout(tryExtractFromEmbedded,    1500);
-      setTimeout(tryExtractFromDomEmbedded, 1800);
-    });
+    history.pushState    = function (...a) { origPush(...a);    onNavigation(); };
+    history.replaceState = function (...a) { origReplace(...a); onNavigation(); };
+    window.addEventListener('popstate', onNavigation);
   })();
 
   // ── Worker interceptor ────────────────────────────────────────────────────────

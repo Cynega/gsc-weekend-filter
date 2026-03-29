@@ -24,17 +24,18 @@
     enabled: true, hideSaturday: true, hideSunday: true,
     hideHolidays: false, country: 'ES', holidays: {},
   };
-  let _rawRows      = null;  // latest rows from injected.js
-  let _filtered     = null;  // buildFiltered() result
-  let _nativeEl     = null;  // outer GSC performance section reference
-  let _nativeHidden = false;
-  let _lastSig      = '';
-  let _renderTimer  = null;
-  let _renderActive = false;
+  let _rawRows       = null;  // latest rows from injected.js
+  let _filtered      = null;  // buildFiltered() result
+  let _nativeEl      = null;  // outer GSC performance section reference
+  let _nativeHidden  = false;
+  let _lastSig       = '';
+  let _renderTimer   = null;
+  let _renderActive  = false;
   let _pendingRender = false;
-  let _loggedWait   = false;
-  let _retryCount   = 0;
-  const MAX_RETRIES = 15;
+  let _loggedWait    = false;
+  let _retryCount    = 0;
+  let _routeChangedAt = 0;    // timestamp of last route change with no data yet
+  const MAX_RETRIES  = 15;
 
   // ── Event listeners ───────────────────────────────────────────────────────────
 
@@ -51,10 +52,11 @@
     console.debug('[GSC-WF] raw-series event received, rows:', e.detail?.rows?.length ?? 0);
     const rows = e.detail?.rows;
     if (!Array.isArray(rows) || !rows.length) return;
-    _rawRows    = rows;
-    _filtered   = buildFiltered(rows, _cfg);
-    _retryCount = 0;
-    _loggedWait = false;
+    _rawRows        = rows;
+    _filtered       = buildFiltered(rows, _cfg);
+    _retryCount     = 0;
+    _loggedWait     = false;
+    _routeChangedAt = 0;
     console.debug(`[GSC-WF] filtered series built: ${_filtered.shownDays} business days of ${_filtered.totalDays}`);
     scheduleRender('data-change');
   });
@@ -338,7 +340,12 @@
     </div>`;
   }
 
-  function buildWaitingHTML(msg) {
+  function buildWaitingHTML(hint) {
+    let msg;
+    if (hint === 'reload') {
+      msg = 'date range changed — <a href="" onclick="location.reload();return false" '
+          + 'style="color:#1a73e8;font-weight:500;text-decoration:none">reload page</a> to update';
+    }
     return `<div style="font-family:'Google Sans',Roboto,Arial,sans-serif;background:#f8f9fa;
                          border:1px solid #dadce0;border-radius:8px;padding:16px;color:#5f6368;font-size:13px">
       <strong style="color:#202124">Business Days View</strong>&nbsp;— ${msg || 'waiting for daily chart data…'}
@@ -527,10 +534,15 @@
 
     // ── 6. No filtered data → waiting state ─────────────────────────────────────
     if (!_filtered) {
-      panel.innerHTML = buildWaitingHTML();
+      const elapsed = _routeChangedAt ? Date.now() - _routeChangedAt : 0;
+      panel.innerHTML = buildWaitingHTML(elapsed > 7000 ? 'reload' : null);
       if (!_loggedWait) {
         console.debug('[GSC-WF] waiting for daily view');
         _loggedWait = true;
+        if (_routeChangedAt) {
+          // Schedule a re-render after 8 s to show the reload prompt if data still missing
+          setTimeout(() => { if (!_filtered) scheduleRender('data-timeout'); }, 8000);
+        }
       }
       return;
     }
@@ -559,11 +571,12 @@
   function scheduleRender(reason) {
     // Route changes (date range, view, navigation) invalidate stale series data.
     if (reason === 'route-change') {
-      _rawRows   = null;
-      _filtered  = null;
-      _lastSig   = '';
-      _loggedWait = false;
-      _nativeEl  = null; // native section will have been recreated by GSC
+      _rawRows        = null;
+      _filtered       = null;
+      _lastSig        = '';
+      _loggedWait     = false;
+      _routeChangedAt = Date.now();
+      _nativeEl       = null; // native section will have been recreated by GSC
       if (_nativeHidden) {
         // User preference tracked but we can't re-apply until new node found
         _nativeHidden = false;
