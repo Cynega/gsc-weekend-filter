@@ -19,7 +19,7 @@ async function getHolidays(country) {
   ]);
 
   const now = Date.now();
-  const years = [new Date().getFullYear() - 1, new Date().getFullYear()];
+  const years = [new Date().getFullYear() - 2, new Date().getFullYear() - 1, new Date().getFullYear()];
   let changed = false;
 
   for (const year of years) {
@@ -47,6 +47,7 @@ async function getHolidays(country) {
   const merged = [
     ...(holidays[`${country}_${years[0]}`] || []),
     ...(holidays[`${country}_${years[1]}`] || []),
+    ...(holidays[`${country}_${years[2]}`] || []),
   ];
 
   // Update the flat holidays map that content_script uses

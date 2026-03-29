@@ -48,6 +48,7 @@
   });
 
   window.addEventListener('gsc-wf-raw-series', (e) => {
+    console.debug('[GSC-WF] raw-series event received, rows:', e.detail?.rows?.length ?? 0);
     const rows = e.detail?.rows;
     if (!Array.isArray(rows) || !rows.length) return;
     _rawRows    = rows;
@@ -467,7 +468,9 @@
     if (!_nativeEl || !document.contains(_nativeEl)) {
       _nativeEl = target;
       _nativeEl.setAttribute('data-gsc-wf-was-display', target.style.display || '');
-      if (_nativeEl !== target) console.debug('[GSC-WF] native section relinked');
+      console.debug('[GSC-WF] native section relinked');
+      // Native section changed — remove stale mount row so it re-inserts before new section
+      document.getElementById(MOUNT_ROW_ID)?.remove();
       // Re-apply hide state if user had toggled it before the node was replaced
       if (_nativeHidden) hideNativeSection();
     }
@@ -610,8 +613,8 @@
         return;
       }
 
-      // Panel is in place — no further scanning needed
-      if (document.getElementById(PANEL_ID)) return;
+      // Panel is in place and native section is still live — nothing to do
+      if (document.getElementById(PANEL_ID) && _nativeEl && document.contains(_nativeEl)) return;
 
       // Mount row exists but panel is gone — unusual; rebuild
       if (_filtered) {
