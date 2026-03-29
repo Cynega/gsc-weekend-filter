@@ -2,24 +2,24 @@
 
 const COUNTRIES = [
   ['AR', 'Argentina'], ['AU', 'Australia'], ['AT', 'Austria'],
-  ['BE', 'Bélgica'], ['BR', 'Brasil'], ['CA', 'Canadá'],
-  ['CL', 'Chile'], ['CO', 'Colombia'], ['HR', 'Croacia'],
-  ['CZ', 'Chequia'], ['DK', 'Dinamarca'], ['EC', 'Ecuador'],
-  ['FI', 'Finlandia'], ['FR', 'Francia'], ['DE', 'Alemania'],
-  ['GR', 'Grecia'], ['HU', 'Hungría'], ['IN', 'India'],
-  ['IE', 'Irlanda'], ['IT', 'Italia'], ['JP', 'Japón'],
-  ['MX', 'México'], ['NL', 'Países Bajos'], ['NZ', 'Nueva Zelanda'],
-  ['NO', 'Noruega'], ['PL', 'Polonia'], ['PT', 'Portugal'],
-  ['RO', 'Rumanía'], ['ZA', 'Sudáfrica'], ['ES', 'España'],
-  ['SE', 'Suecia'], ['CH', 'Suiza'], ['GB', 'Reino Unido'],
-  ['US', 'Estados Unidos'], ['UY', 'Uruguay'], ['VE', 'Venezuela'],
+  ['BE', 'Belgium'], ['BR', 'Brazil'], ['CA', 'Canada'],
+  ['CL', 'Chile'], ['CO', 'Colombia'], ['HR', 'Croatia'],
+  ['CZ', 'Czechia'], ['DK', 'Denmark'], ['EC', 'Ecuador'],
+  ['FI', 'Finland'], ['FR', 'France'], ['DE', 'Germany'],
+  ['GR', 'Greece'], ['HU', 'Hungary'], ['IN', 'India'],
+  ['IE', 'Ireland'], ['IT', 'Italy'], ['JP', 'Japan'],
+  ['MX', 'Mexico'], ['NL', 'Netherlands'], ['NZ', 'New Zealand'],
+  ['NO', 'Norway'], ['PL', 'Poland'], ['PT', 'Portugal'],
+  ['RO', 'Romania'], ['ZA', 'South Africa'], ['ES', 'Spain'],
+  ['SE', 'Sweden'], ['CH', 'Switzerland'], ['GB', 'United Kingdom'],
+  ['US', 'United States'], ['UY', 'Uruguay'], ['VE', 'Venezuela'],
 ];
 
 const $ = (id) => document.getElementById(id);
 
 // ── Populate country selector ──────────────────────────────────────────────────
 const sel = $('country');
-COUNTRIES.sort((a, b) => a[1].localeCompare(b[1], 'es')).forEach(([code, name]) => {
+COUNTRIES.sort((a, b) => a[1].localeCompare(b[1], 'en')).forEach(([code, name]) => {
   const opt = document.createElement('option');
   opt.value = code;
   opt.textContent = name;
@@ -78,20 +78,20 @@ function updateStatus(cfg) {
   const el = $('status');
   if (!cfg.enabled) {
     el.className = '';
-    el.textContent = 'Filtro desactivado';
+    el.textContent = 'Filter disabled';
     return;
   }
   const parts = [];
-  if (cfg.hideSaturday) parts.push('sábados');
-  if (cfg.hideSunday)   parts.push('domingos');
+  if (cfg.hideSaturday) parts.push('Saturdays');
+  if (cfg.hideSunday)   parts.push('Sundays');
   if (cfg.hideHolidays) {
     const list = (cfg.holidays || {})[cfg.country] || [];
-    parts.push(`festivos (${list.length} cargados)`);
+    parts.push(`holidays (${list.length} loaded)`);
   }
   el.className = parts.length ? 'ok' : '';
   el.textContent = parts.length
-    ? `Ocultando: ${parts.join(', ')}`
-    : 'Sin filtros activos';
+    ? `Hiding: ${parts.join(', ')}`
+    : 'No active filters';
 }
 
 // ── Fetch holidays via background service worker ───────────────────────────────
@@ -103,13 +103,13 @@ $('fetch-btn').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = '…';
   status.className = '';
-  status.textContent = `Descargando festivos de ${country}…`;
+  status.textContent = `Fetching holidays for ${country}…`;
 
   try {
     const res = await chrome.runtime.sendMessage({ type: 'fetchHolidays', country });
     if (res.ok) {
       status.className = 'ok';
-      status.textContent = `${res.dates.length} festivos cargados para ${country}`;
+      status.textContent = `${res.dates.length} holidays loaded for ${country}`;
     } else {
       throw new Error(res.error);
     }
@@ -118,7 +118,7 @@ $('fetch-btn').addEventListener('click', async () => {
     status.textContent = `Error: ${e.message}`;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Actualizar';
+    btn.textContent = 'Refresh';
   }
 });
 

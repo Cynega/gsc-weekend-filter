@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,12 +8,12 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       background: #fff;
       color: #1a1a1a;
-      width: 260px;
-      padding: 16px;
+      width: 280px;
+      padding: 16px 16px 14px;
     }
 
     /* ── Header ── */
@@ -21,12 +21,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .header h1 {
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 15px;
+      font-weight: 700;
       color: #1a73e8;
+      letter-spacing: -0.2px;
     }
 
     /* ── Toggle switch ── */
@@ -59,19 +60,20 @@
     input:checked + .slider { background: #1a73e8; }
     input:checked + .slider::before { transform: translateX(16px); }
 
-    /* ── Sections ── */
+    /* ── Section ── */
     .section {
+      background: #f8f9fa;
       border: 1px solid #e8eaed;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 12px;
       margin-bottom: 10px;
     }
     .section-title {
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #5f6368;
+      letter-spacing: 0.8px;
+      color: #80868b;
       margin-bottom: 10px;
     }
 
@@ -80,22 +82,26 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 0;
+      padding: 5px 0;
       cursor: pointer;
       user-select: none;
+      border-radius: 6px;
     }
+    .check-row:hover { background: #f1f3f4; margin: 0 -4px; padding: 5px 4px; }
     .check-row input[type="checkbox"] {
       width: 15px;
       height: 15px;
       accent-color: #1a73e8;
       cursor: pointer;
+      flex-shrink: 0;
     }
     .check-row span { flex: 1; }
     .day-badge {
       font-size: 10px;
-      padding: 1px 6px;
+      padding: 2px 7px;
       border-radius: 10px;
-      font-weight: 500;
+      font-weight: 600;
+      letter-spacing: 0.2px;
     }
     .badge-sat { background: #fce8e6; color: #c5221f; }
     .badge-sun { background: #fce8e6; color: #c5221f; }
@@ -103,29 +109,33 @@
 
     /* ── Country selector ── */
     #country-row {
-      margin-top: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e8eaed;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    #country-row label { color: #5f6368; white-space: nowrap; }
+    #country-row label { color: #5f6368; white-space: nowrap; font-size: 12px; }
     #country {
       flex: 1;
       padding: 4px 6px;
       border: 1px solid #dadce0;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 12px;
       background: #fff;
     }
     #fetch-btn {
-      padding: 4px 8px;
+      padding: 4px 10px;
       border: 1px solid #1a73e8;
-      border-radius: 4px;
+      border-radius: 6px;
       background: #fff;
       color: #1a73e8;
       font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
       white-space: nowrap;
+      transition: background 0.15s;
     }
     #fetch-btn:hover { background: #e8f0fe; }
     #fetch-btn:disabled { opacity: 0.5; cursor: default; }
@@ -134,12 +144,63 @@
     #status {
       font-size: 11px;
       color: #5f6368;
-      margin-top: 10px;
+      margin-top: 8px;
       min-height: 16px;
       text-align: center;
     }
     #status.ok  { color: #137333; }
     #status.err { color: #c5221f; }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: #e8eaed;
+      margin: 12px 0;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+    }
+    .social-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .social-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #f1f3f4;
+      color: #5f6368;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .social-link:hover { background: #e8eaed; color: #1a73e8; }
+    .social-link svg { width: 14px; height: 14px; fill: currentColor; }
+    .made-by {
+      font-size: 11px;
+      color: #80868b;
+    }
+    .made-by a {
+      color: #1a73e8;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .made-by a:hover { text-decoration: underline; }
+    .disclaimer {
+      font-size: 10px;
+      color: #9aa0a6;
+      text-align: center;
+      line-height: 1.5;
+      padding: 0 4px;
+    }
 
     /* Disabled overlay */
     body.off .section { opacity: 0.45; pointer-events: none; }
@@ -155,34 +216,59 @@
   </div>
 
   <div class="section">
-    <div class="section-title">Ocultar del gráfico</div>
+    <div class="section-title">Hide from chart</div>
 
     <label class="check-row">
       <input type="checkbox" id="hideSaturday" />
-      <span>Sábados</span>
-      <span class="day-badge badge-sat">Sáb</span>
+      <span>Saturdays</span>
+      <span class="day-badge badge-sat">Sat</span>
     </label>
 
     <label class="check-row">
       <input type="checkbox" id="hideSunday" />
-      <span>Domingos</span>
-      <span class="day-badge badge-sun">Dom</span>
+      <span>Sundays</span>
+      <span class="day-badge badge-sun">Sun</span>
     </label>
 
     <label class="check-row">
       <input type="checkbox" id="hideHolidays" />
-      <span>Festivos</span>
-      <span class="day-badge badge-hol">Fest</span>
+      <span>Public holidays</span>
+      <span class="day-badge badge-hol">Hol</span>
     </label>
 
     <div id="country-row">
-      <label for="country">País</label>
+      <label for="country">Country</label>
       <select id="country"></select>
-      <button id="fetch-btn">Actualizar</button>
+      <button id="fetch-btn">Refresh</button>
     </div>
   </div>
 
   <div id="status"></div>
+
+  <div class="divider"></div>
+
+  <div class="footer">
+    <div class="social-links">
+      <!-- Website -->
+      <a href="https://emilianoarnaez.com/" target="_blank" class="social-link" title="Website">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      </a>
+      <!-- LinkedIn -->
+      <a href="https://www.linkedin.com/in/cynega/" target="_blank" class="social-link" title="LinkedIn">
+        <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      <!-- X -->
+      <a href="https://x.com/Cynega" target="_blank" class="social-link" title="X">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.629L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
+      </a>
+    </div>
+
+    <div class="made-by">Made by <a href="https://emilianoarnaez.com/" target="_blank">Emiliano G. Arnáez</a></div>
+
+    <div class="disclaimer">
+      Your data never leaves your browser. This extension only reads data already loaded by Google Search Console on the page — it does not collect, store, or transmit anything. All Search Console data is owned by Google LLC.
+    </div>
+  </div>
 
   <script src="popup.js"></script>
 </body>
