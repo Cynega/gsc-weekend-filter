@@ -84,13 +84,13 @@
 
   // ── Formatting ────────────────────────────────────────────────────────────────
 
-  const _f1  = new Intl.NumberFormat('es', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  const _f0  = new Intl.NumberFormat('es', { maximumFractionDigits: 0 });
+  const _f1  = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const _f0  = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
   function fmtCount(v) {
     if (v >= 1e9) return _f1.format(v / 1e9)  + '\u00a0B';
     if (v >= 1e6) return _f1.format(v / 1e6)  + '\u00a0M';
-    if (v >= 1e3) return _f1.format(v / 1e3)  + '\u00a0mil';
+    if (v >= 1e3) return _f1.format(v / 1e3)  + '\u00a0K';
     return _f0.format(v);
   }
   function fmtCtr(v)  { return _f1.format(v * 100) + '\u00a0%'; }
@@ -102,10 +102,10 @@
     return n.toFixed(0);
   }
   function fmtXDate(d) {        // short X-axis label
-    return new Date(d + 'T12:00:00Z').toLocaleDateString('es', { day: 'numeric', month: 'short' });
+    return new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
   }
   function fmtTipDate(d) {      // tooltip header (includes weekday)
-    return new Date(d + 'T12:00:00Z').toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+    return new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   // ── SVG chart ─────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@
 
   function buildChartSVG(biz) {
     if (!biz?.length) {
-      return '<p style="text-align:center;color:#80868b;padding:30px 0;margin:0">Sin datos suficientes.</p>';
+      return '<p style="text-align:center;color:#80868b;padding:30px 0;margin:0">Not enough data.</p>';
     }
 
     const n   = biz.length;
@@ -180,8 +180,8 @@
   <!-- X axis -->
   ${xTicks}
   <!-- Axis rotation labels -->
-  <text x="${lx}" y="${ly}" text-anchor="middle" font-size="11" fill="${CLR.clicks}" transform="rotate(-90,${lx},${ly})">Clics</text>
-  <text x="${rx}" y="${ry}" text-anchor="middle" font-size="11" fill="${CLR.impressions}" transform="rotate(90,${rx},${ry})">Impresiones</text>
+  <text x="${lx}" y="${ly}" text-anchor="middle" font-size="11" fill="${CLR.clicks}" transform="rotate(-90,${lx},${ly})">Clicks</text>
+  <text x="${rx}" y="${ry}" text-anchor="middle" font-size="11" fill="${CLR.impressions}" transform="rotate(90,${rx},${ry})">Impressions</text>
 
   <!-- Hover layer (all pointer-events="none" except capture rect) -->
   <line id="gsc-wf-gl" x1="0" y1="${MT}" x2="0" y2="${MT+PH}" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,3" pointer-events="none" visibility="hidden"/>
@@ -264,10 +264,10 @@
 
       // Tooltip text (from filtered daily row — not from chart aggregates)
       ttDt.textContent = fmtTipDate(row.date);
-      ttCk.textContent = `Clics: ${fmtCount(row.clicks)}`;
+      ttCk.textContent = `Clicks: ${fmtCount(row.clicks)}`;
       ttIm.textContent = `Impr: ${fmtCount(row.impressions)}`;
       ttCt.textContent = `CTR: ${fmtCtr(row.ctr)}`;
-      ttPo.textContent = `Posición: ${fmtPos(row.position)}`;
+      ttPo.textContent = `Position: ${fmtPos(row.position)}`;
 
       // Tooltip position: right of cursor, flip left near right edge
       const MARGIN = 14;
@@ -296,10 +296,10 @@
 
   function buildPanelHTML(fd) {
     const kpis = [
-      { label: 'Clics',          val: fmtCount(fd.totalClicks),      color: CLR.clicks       },
-      { label: 'Impresiones',    val: fmtCount(fd.totalImpressions),  color: CLR.impressions  },
-      { label: 'CTR medio',      val: fmtCtr(fd.avgCTR),              color: '#f9ab00'        },
-      { label: 'Posición media', val: fmtPos(fd.avgPosition),         color: '#ea4335'        },
+      { label: 'Clicks',        val: fmtCount(fd.totalClicks),      color: CLR.clicks      },
+      { label: 'Impressions',   val: fmtCount(fd.totalImpressions),  color: CLR.impressions },
+      { label: 'Avg CTR',       val: fmtCtr(fd.avgCTR),              color: '#f9ab00'       },
+      { label: 'Avg Position',  val: fmtPos(fd.avgPosition),         color: '#ea4335'       },
     ];
     const cards = kpis.map(k =>
       `<div style="flex:1;min-width:130px;padding:12px 16px;background:#fff;border-radius:4px;
@@ -308,17 +308,23 @@
          <div style="font-size:22px;font-weight:500;color:#202124">${k.val}</div>
        </div>`).join('');
 
-    const toggleLabel = _nativeHidden ? 'Mostrar vista Google' : 'Ocultar vista Google';
+    const weekendsRemoved = fd.rows.filter(r => r.isWeekend && !r.isBusinessDay).length;
+    const fmtRangeDate    = d => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const startDate       = fd.rows[0]?.date;
+    const endDate         = fd.rows[fd.rows.length - 1]?.date;
+    const rangeLabel      = startDate && endDate ? `${fmtRangeDate(startDate)} – ${fmtRangeDate(endDate)}` : '';
+
+    const toggleLabel = _nativeHidden ? 'Show Google view' : 'Hide Google view';
 
     return `<div style="font-family:'Google Sans',Roboto,Arial,sans-serif;background:#f8f9fa;
                          border:1px solid #dadce0;border-radius:8px;padding:20px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:14px;font-weight:500;color:#202124">Business Days View</span>
-          <span style="font-size:12px;color:#5f6368;background:#e8f0fe;padding:2px 8px;border-radius:10px">
-            ${fd.shownDays} de ${fd.totalDays} días
+          <span style="font-size:14px;font-weight:500;color:#202124">Business Days View: ${fd.shownDays}</span>
+          <span style="font-size:12px;color:#1967d2;background:#e8f0fe;padding:2px 8px;border-radius:10px">
+            ${weekendsRemoved} weekends removed
           </span>
-          <span style="font-size:11px;color:#80868b">fines de semana eliminados</span>
+          ${rangeLabel ? `<span style="font-size:12px;color:#80868b;background:#f1f3f4;padding:2px 8px;border-radius:10px">${rangeLabel}</span>` : ''}
         </div>
         <button data-gsc-wf-toggle style="font-size:12px;color:#1a73e8;background:#fff;
           border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
@@ -335,7 +341,7 @@
   function buildWaitingHTML(msg) {
     return `<div style="font-family:'Google Sans',Roboto,Arial,sans-serif;background:#f8f9fa;
                          border:1px solid #dadce0;border-radius:8px;padding:16px;color:#5f6368;font-size:13px">
-      <strong style="color:#202124">Business Days View</strong>&nbsp;— ${msg || 'esperando datos del gráfico diario…'}
+      <strong style="color:#202124">Business Days View</strong>&nbsp;— ${msg || 'waiting for daily chart data…'}
     </div>`;
   }
 
