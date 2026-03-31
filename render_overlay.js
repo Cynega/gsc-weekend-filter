@@ -468,17 +468,25 @@
     injectStyles();
 
     // ── 1. Find or validate mount target ────────────────────────────────────────
-    const target = findMountTarget();
+    // If the SVG-based search fails (chart in loading state, shadow DOM, etc.)
+    // but we already have a live _nativeEl, keep using it so the panel stays
+    // mounted and can show a "waiting / reload" message without disappearing.
+    let target = findMountTarget();
     if (!target) {
-      if (_retryCount < MAX_RETRIES) {
-        _retryCount++;
-        _renderTimer = setTimeout(() => renderOrUpdate('retry'), 1500);
-        if (!_loggedWait) {
-          console.debug('[GSC-WF] mount deferred: waiting for stable performance section');
-          _loggedWait = true;
+      if (_nativeEl && document.contains(_nativeEl)) {
+        target = _nativeEl; // fallback: reuse existing mount point
+        console.debug('[GSC-WF] findMountTarget failed — reusing existing native section');
+      } else {
+        if (_retryCount < MAX_RETRIES) {
+          _retryCount++;
+          _renderTimer = setTimeout(() => renderOrUpdate('retry'), 1500);
+          if (!_loggedWait) {
+            console.debug('[GSC-WF] mount deferred: waiting for stable performance section');
+            _loggedWait = true;
+          }
         }
+        return;
       }
-      return;
     }
 
     // ── 2. Re-link native section reference if GSC replaced the node ────────────
@@ -581,11 +589,10 @@
       _loggedWait     = false;
       _retryCount     = 0;
       _routeChangedAt = Date.now();
-      _nativeEl       = null; // native section will have been recreated by GSC
-      if (_nativeHidden) {
-        // User preference tracked but we can't re-apply until new node found
-        _nativeHidden = false;
-      }
+      // Do NOT clear _nativeEl here: if GSC reuses the same container element
+      // (common for in-page date range changes), the panel stays mounted and
+      // shows "waiting" immediately. If the element gets replaced, the
+      // MutationObserver catches it and clears _nativeEl then.
       console.debug('[GSC-WF] route changed');
     }
 
