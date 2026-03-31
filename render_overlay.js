@@ -10,6 +10,7 @@
   const PANEL_ID     = 'gsc-wf-panel';
   const MOUNT_ROW_ID = 'gsc-wf-mount-row';
   const STYLES_ID    = 'gsc-wf-styles';
+  const NOTICE_ID    = 'gsc-wf-notice';
 
   // SVG viewport (shared between buildChartSVG and attachChartHover)
   const W=900, H=260, ML=68, MR=68, MT=22, MB=44;
@@ -35,7 +36,47 @@
   let _loggedWait    = false;
   let _retryCount    = 0;
   let _routeChangedAt = 0;    // timestamp of last route change with no data yet
+  let _noticeTimer   = null;  // timer before showing the floating reload notice
   const MAX_RETRIES  = 15;
+
+  // ── Floating reload notice ────────────────────────────────────────────────────
+  // Shown when the panel disappears after a date range change and can't be
+  // re-mounted. Uses position:fixed so it's always visible regardless of DOM.
+
+  function showReloadNotice() {
+    if (!_cfg.enabled || document.getElementById(NOTICE_ID)) return;
+    const el = document.createElement('div');
+    el.id = NOTICE_ID;
+    el.setAttribute('data-gsc-wf-owned', '1');
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+      'background:#1a73e8;color:#fff;' +
+      'font-family:Google Sans,Roboto,Arial,sans-serif;font-size:13px;' +
+      'padding:9px 16px;display:flex;align-items:center;gap:10px;' +
+      'box-shadow:0 2px 6px rgba(0,0,0,.3)';
+    el.innerHTML =
+      '<span style="flex:1"><strong>Business Days View</strong> — date range changed — ' +
+      '<a href="" onclick="location.reload();return false" ' +
+      'style="color:#fff;font-weight:600;text-decoration:underline">reload page</a> to update</span>' +
+      '<button onclick="document.getElementById(\'' + NOTICE_ID + '\').remove()" ' +
+      'style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;' +
+      'padding:0 4px;line-height:1;opacity:.8">×</button>';
+    document.body.appendChild(el);
+    console.debug('[GSC-WF] reload notice shown');
+  }
+
+  function hideReloadNotice() {
+    document.getElementById(NOTICE_ID)?.remove();
+    if (_noticeTimer) { clearTimeout(_noticeTimer); _noticeTimer = null; }
+  }
+
+  // Schedule the notice after a delay — cancelled if data arrives first.
+  function scheduleNotice(delaySec) {
+    if (_noticeTimer) return; // already scheduled
+    _noticeTimer = setTimeout(() => {
+      _noticeTimer = null;
+      if (!_filtered) showReloadNotice();
+    }, delaySec * 1000);
+  }
 
   // ── Event listeners ───────────────────────────────────────────────────────────
 
@@ -57,6 +98,7 @@
     _retryCount     = 0;
     _loggedWait     = false;
     _routeChangedAt = 0;
+    hideReloadNotice();
     console.debug(`[GSC-WF] filtered series built: ${_filtered.shownDays} business days of ${_filtered.totalDays}`);
     scheduleRender('data-change');
   });
@@ -417,6 +459,7 @@
   function disablePanel() {
     restoreNativeSection();
     document.getElementById(MOUNT_ROW_ID)?.remove();
+    hideReloadNotice();
     _nativeEl     = null;
     _nativeHidden = false;
     _lastSig      = '';
@@ -593,6 +636,7 @@
       // (common for in-page date range changes), the panel stays mounted and
       // shows "waiting" immediately. If the element gets replaced, the
       // MutationObserver catches it and clears _nativeEl then.
+      scheduleNotice(8); // show floating banner if no data in 8 s
       console.debug('[GSC-WF] route changed');
     }
 
@@ -634,12 +678,14 @@
       // Native section node was replaced by GSC (SPA rerender)
       if (_nativeEl && !document.contains(_nativeEl)) {
         _nativeEl = null;
+        scheduleNotice(5); // show banner if panel can't re-mount within 5 s
         scheduleRender('native-replaced');
         return;
       }
 
       // Our mount row was removed
       if (!document.getElementById(MOUNT_ROW_ID)) {
+        scheduleNotice(5); // show banner if panel can't re-mount within 5 s
         scheduleRender('panel-removed');
         return;
       }
