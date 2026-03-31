@@ -357,24 +357,28 @@
   // top edge is at least MIN_ABOVE_PX above the SVG (meaning it contains the
   // native KPI cards row above the chart).
 
-  const MIN_ABOVE_PX = 80;
-  const MIN_WIDTH_PX = 500;
+  const MIN_ABOVE_PX = 60;   // relaxed: KPI cards are ~60 px above the chart SVG
+  const MIN_WIDTH_PX = 400;  // relaxed: accommodates narrower viewports
 
   function findMountTarget() {
-    let bestSvg = null, bestCount = 0;
+    let bestSvg = null, bestScore = 0;
     document.querySelectorAll('svg').forEach(svg => {
       if (svg.closest('[data-gsc-wf-owned]')) return;
       const rect = svg.getBoundingClientRect();
       if (rect.width < 200 || rect.height < 50) return;
-      const cnt = svg.querySelectorAll('path, polyline').length;
-      if (cnt > bestCount) { bestCount = cnt; bestSvg = svg; }
+      // Count any shape element — GSC may use path, polyline, or line for chart lines
+      const cnt = svg.querySelectorAll('path, polyline, line').length;
+      // Score by element count; break ties by area (larger = more likely the chart)
+      const score = cnt * 10000 + rect.width * rect.height;
+      if (score > bestScore) { bestScore = score; bestSvg = svg; }
     });
-    if (!bestSvg || bestCount < 3) return null;
+    // Require at least one shape element (pure-icon SVGs have none)
+    if (!bestSvg || bestScore < 10000) return null;
 
     const svgAbsTop = bestSvg.getBoundingClientRect().top + window.scrollY;
     let el = bestSvg.parentElement;
 
-    for (let d = 0; d < 20; d++) {
+    for (let d = 0; d < 35; d++) {  // increased depth limit for deeply-nested SPAs
       if (!el || el === document.body || el === document.documentElement) break;
       const rect = el.getBoundingClientRect();
       const elTop = rect.top + window.scrollY;
@@ -575,6 +579,7 @@
       _filtered       = null;
       _lastSig        = '';
       _loggedWait     = false;
+      _retryCount     = 0;
       _routeChangedAt = Date.now();
       _nativeEl       = null; // native section will have been recreated by GSC
       if (_nativeHidden) {
@@ -634,6 +639,20 @@
 
       // Panel is in place and native section is still live — nothing to do
       if (document.getElementById(PANEL_ID) && _nativeEl && document.contains(_nativeEl)) return;
+
+      // A large SVG appeared while we have no panel — GSC finished re-rendering its chart
+      if (!document.getElementById(PANEL_ID)) {
+        const hasBigSvg = [...document.querySelectorAll('svg')].some(s => {
+          if (s.closest('[data-gsc-wf-owned]')) return false;
+          const r = s.getBoundingClientRect();
+          return r.width >= 200 && r.height >= 50;
+        });
+        if (hasBigSvg) {
+          clearTimeout(_debounceTimer);
+          _debounceTimer = setTimeout(() => scheduleRender('chart-appeared'), 400);
+          return;
+        }
+      }
 
       // Mount row exists but panel is gone — unusual; rebuild
       if (_filtered) {
