@@ -526,10 +526,14 @@
           console.debug('[GSC-WF] mount deferred: waiting for stable performance section');
           _loggedWait = true;
         }
+        // Only count retries from explicit _retryTimer firings, NOT from every
+        // mutation-triggered render. This prevents exhausting MAX_RETRIES
+        // prematurely while GSC is still mutating the DOM.
+        if (reason === 'retry-mount') _retryCount++;
+
         if (_retryCount < MAX_RETRIES) {
-          _retryCount++;
-          // Use _retryTimer (separate from _renderTimer) so that MutationObserver
-          // calls to scheduleRender() don't cancel our mount-point retries.
+          // Reset the timer each time — fires 2 s after the LAST failure,
+          // ensuring GSC has finished its own re-render before we try again.
           clearTimeout(_retryTimer);
           _retryTimer = setTimeout(() => {
             _retryTimer = null;
