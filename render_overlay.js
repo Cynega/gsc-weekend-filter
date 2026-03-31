@@ -35,9 +35,10 @@
   let _pendingRender = false;
   let _loggedWait    = false;
   let _retryCount    = 0;
+  let _retryTimer    = null;  // separate from _renderTimer — NOT cancelled by scheduleRender
   let _routeChangedAt = 0;    // timestamp of last route change with no data yet
   let _noticeTimer   = null;  // timer before showing the floating reload notice
-  const MAX_RETRIES  = 15;
+  const MAX_RETRIES  = 60;    // 60 × 2 s = 2 min of retries after panel loss
 
   // ── Floating reload notice ────────────────────────────────────────────────────
   // Shown when the panel disappears after a date range change and can't be
@@ -460,6 +461,7 @@
     restoreNativeSection();
     document.getElementById(MOUNT_ROW_ID)?.remove();
     hideReloadNotice();
+    clearTimeout(_retryTimer); _retryTimer = null;
     _nativeEl     = null;
     _nativeHidden = false;
     _lastSig      = '';
@@ -520,13 +522,19 @@
         target = _nativeEl; // fallback: reuse existing mount point
         console.debug('[GSC-WF] findMountTarget failed — reusing existing native section');
       } else {
+        if (!_loggedWait) {
+          console.debug('[GSC-WF] mount deferred: waiting for stable performance section');
+          _loggedWait = true;
+        }
         if (_retryCount < MAX_RETRIES) {
           _retryCount++;
-          _renderTimer = setTimeout(() => renderOrUpdate('retry'), 1500);
-          if (!_loggedWait) {
-            console.debug('[GSC-WF] mount deferred: waiting for stable performance section');
-            _loggedWait = true;
-          }
+          // Use _retryTimer (separate from _renderTimer) so that MutationObserver
+          // calls to scheduleRender() don't cancel our mount-point retries.
+          clearTimeout(_retryTimer);
+          _retryTimer = setTimeout(() => {
+            _retryTimer = null;
+            scheduleRender('retry-mount');
+          }, 2000);
         }
         return;
       }
@@ -631,6 +639,7 @@
       _lastSig        = '';
       _loggedWait     = false;
       _retryCount     = 0;
+      clearTimeout(_retryTimer); _retryTimer = null;
       _routeChangedAt = Date.now();
       // Do NOT clear _nativeEl here: if GSC reuses the same container element
       // (common for in-page date range changes), the panel stays mounted and
