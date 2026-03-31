@@ -531,14 +531,13 @@
         // prematurely while GSC is still mutating the DOM.
         if (reason === 'retry-mount') _retryCount++;
 
-        if (_retryCount < MAX_RETRIES) {
-          // Reset the timer each time — fires 2 s after the LAST failure,
-          // ensuring GSC has finished its own re-render before we try again.
-          clearTimeout(_retryTimer);
+        if (_retryCount < MAX_RETRIES && !_retryTimer) {
+          // Do NOT clear an existing timer — mutation-triggered renders must not
+          // keep pushing the retry back. Once scheduled, let it fire.
           _retryTimer = setTimeout(() => {
             _retryTimer = null;
             scheduleRender('retry-mount');
-          }, 2000);
+          }, 1000);
         }
         return;
       }
