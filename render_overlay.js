@@ -101,6 +101,12 @@
     _routeChangedAt = 0;
     hideReloadNotice();
     console.debug(`[GSC-WF] filtered series built: ${_filtered.shownDays} business days of ${_filtered.totalDays}`);
+    // If the panel isn't in the DOM yet, discard any pending retry timer so the
+    // scheduleRender below triggers a fresh, immediate mount attempt rather than
+    // waiting for the old timer to fire.
+    if (!document.getElementById(PANEL_ID)) {
+      clearTimeout(_retryTimer); _retryTimer = null;
+    }
     scheduleRender('data-change');
   });
 
@@ -537,7 +543,7 @@
           _retryTimer = setTimeout(() => {
             _retryTimer = null;
             scheduleRender('retry-mount');
-          }, 1000);
+          }, 300);
         }
         return;
       }
@@ -665,7 +671,7 @@
         _renderActive = false;
         if (_pendingRender) scheduleRender('deferred');
       }
-    }, reason === 'layout-stabilization' ? 600 : 350);
+    }, reason === 'layout-stabilization' ? 600 : reason === 'data-change' ? 50 : 350);
   }
 
   // ── SPA navigation detection ──────────────────────────────────────────────────
@@ -690,23 +696,24 @@
       // Native section node was replaced by GSC (SPA rerender)
       if (_nativeEl && !document.contains(_nativeEl)) {
         _nativeEl = null;
-        scheduleNotice(5); // show banner if panel can't re-mount within 5 s
+        scheduleNotice(5);
         scheduleRender('native-replaced');
         return;
       }
 
-      // Our mount row was removed
-      if (!document.getElementById(MOUNT_ROW_ID)) {
-        scheduleNotice(5); // show banner if panel can't re-mount within 5 s
-        scheduleRender('panel-removed');
-        return;
-      }
+      const mountRowGone = !document.getElementById(MOUNT_ROW_ID);
+      const panelGone    = !document.getElementById(PANEL_ID);
 
-      // Panel is in place and native section is still live — nothing to do
-      if (document.getElementById(PANEL_ID) && _nativeEl && document.contains(_nativeEl)) return;
+      // Nothing changed that concerns us — panel and native section both present
+      if (!mountRowGone && !panelGone && _nativeEl && document.contains(_nativeEl)) return;
 
-      // A large SVG appeared while we have no panel — GSC finished re-rendering its chart
-      if (!document.getElementById(PANEL_ID)) {
+      if (mountRowGone) scheduleNotice(5);
+
+      // Panel is gone — check if GSC's chart SVG has already (re)appeared.
+      // This is the fast path: if the new chart is visible, mount immediately
+      // instead of waiting for the _retryTimer. We must check this EVEN WHEN
+      // the mount row is gone (previously the early `return` blocked this).
+      if (panelGone) {
         const hasBigSvg = [...document.querySelectorAll('svg')].some(s => {
           if (s.closest('[data-gsc-wf-owned]')) return false;
           const r = s.getBoundingClientRect();
@@ -714,13 +721,13 @@
         });
         if (hasBigSvg) {
           clearTimeout(_debounceTimer);
-          _debounceTimer = setTimeout(() => scheduleRender('chart-appeared'), 400);
+          _debounceTimer = setTimeout(() => scheduleRender('chart-appeared'), 200);
           return;
         }
       }
 
-      // Mount row exists but panel is gone — unusual; rebuild
-      if (_filtered) {
+      // SVG not visible yet (chart still loading) or mount row gone — schedule a retry
+      if (mountRowGone || (panelGone && _filtered)) {
         clearTimeout(_debounceTimer);
         _debounceTimer = setTimeout(() => scheduleRender('panel-removed'), 200);
       }
