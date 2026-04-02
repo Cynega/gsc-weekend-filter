@@ -384,6 +384,41 @@
 
   // ── CSV export ────────────────────────────────────────────────────────────────
 
+  function exportPNG(panel) {
+    const svg = panel.querySelector('[data-gsc-wf-chart]');
+    if (!svg) return;
+
+    // Render at 2× for crisp retina output
+    const scale  = 2;
+    const svgW   = W * scale;
+    const svgH   = H * scale;
+
+    const serialized = new XMLSerializer().serializeToString(svg);
+    const blob   = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
+    const url    = URL.createObjectURL(blob);
+    const img    = new Image();
+
+    img.onload = () => {
+      const canvas    = document.createElement('canvas');
+      canvas.width    = svgW;
+      canvas.height   = svgH;
+      const ctx       = canvas.getContext('2d');
+      ctx.fillStyle   = '#ffffff';
+      ctx.fillRect(0, 0, svgW, svgH);
+      ctx.drawImage(img, 0, 0, svgW, svgH);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(pngBlob => {
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(pngBlob);
+        a.download = 'gsc-bdv-chart.png';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        console.debug('[GSC-WF] PNG exported');
+      }, 'image/png');
+    };
+    img.src = url;
+  }
+
   function exportCSV(fd) {
     const lines = ['Date,Clicks,Impressions,CTR,Position'];
     for (const r of fd.businessDays) {
@@ -453,6 +488,10 @@
           <button data-gsc-wf-export style="font-size:12px;color:#1a73e8;background:#fff;
             border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
             Export CSV
+          </button>
+          <button data-gsc-wf-png style="font-size:12px;color:#1a73e8;background:#fff;
+            border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
+            Download PNG
           </button>
           <button data-gsc-wf-toggle style="font-size:12px;color:#1a73e8;background:#fff;
             border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
@@ -658,6 +697,7 @@
       panel.addEventListener('click', e => {
         if (e.target.closest('[data-gsc-wf-toggle]')) toggleNativeSection();
         if (e.target.closest('[data-gsc-wf-export]') && _filtered) exportCSV(_filtered);
+        if (e.target.closest('[data-gsc-wf-png]')) exportPNG(panel);
       });
       isNewPanel = true;
       _lastSig = ''; // force full render on new panel
