@@ -429,6 +429,14 @@
     const endDate         = fd.rows[fd.rows.length - 1]?.date;
     const rangeLabel      = startDate && endDate ? `${fmtRangeDate(startDate)} – ${fmtRangeDate(endDate)}` : '';
 
+    const totalClicks      = fd.rows.reduce((s, r) => s + r.clicks,      0);
+    const totalImpressions = fd.rows.reduce((s, r) => s + r.impressions, 0);
+    const pctClicks      = totalClicks      > 0 ? Math.round(fd.totalClicks      / totalClicks      * 100) : null;
+    const pctImpressions = totalImpressions > 0 ? Math.round(fd.totalImpressions / totalImpressions * 100) : null;
+    const shareLabel = (pctClicks !== null && pctImpressions !== null)
+      ? `Business days account for <strong>${pctClicks}%</strong> of clicks and <strong>${pctImpressions}%</strong> of impressions &nbsp;·&nbsp; ${fd.shownDays} of ${fd.totalDays} days`
+      : '';
+
     const toggleLabel = _nativeHidden ? 'Show Google view' : 'Hide Google view';
 
     return `<div style="font-family:'Google Sans',Roboto,Arial,sans-serif;background:#f8f9fa;
@@ -452,7 +460,8 @@
           </button>
         </div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:${shareLabel ? '10px' : '16px'}">${cards}</div>
+      ${shareLabel ? `<div style="font-size:12px;color:#5f6368;margin-bottom:16px;padding:0 2px">${shareLabel}</div>` : ''}
       <div style="background:#fff;border:1px solid #dadce0;border-radius:4px;padding:8px 2px 4px">
         ${buildChartSVG(fd.businessDays)}
       </div>
