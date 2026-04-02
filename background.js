@@ -62,6 +62,11 @@ async function getHolidays(country) {
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'fetchHolidays') {
+    // Validate country is a 2-letter ISO code before interpolating into the URL.
+    if (typeof msg.country !== 'string' || !/^[A-Z]{2}$/.test(msg.country)) {
+      sendResponse({ ok: false, error: 'Invalid country code' });
+      return false;
+    }
     getHolidays(msg.country)
       .then((dates) => sendResponse({ ok: true, dates }))
       .catch((err) => sendResponse({ ok: false, error: err.message }));

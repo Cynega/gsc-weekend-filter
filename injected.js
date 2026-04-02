@@ -398,6 +398,12 @@
     // script tags progressively as the new view renders.
     function onNavigation() {
       _embeddedDone = false; _domEmbeddedDone = false; _jsonSeriesDone = false;
+      // Notify render_overlay.js (ISOLATED world) that a SPA navigation just fired.
+      // This is the authoritative signal: injected.js shares GSC's JS context, so
+      // its pushState/replaceState wrappers intercept actual page navigations.
+      window.dispatchEvent(new CustomEvent('gsc-wf-route-change', {
+        detail: { href: location.href, ts: Date.now() },
+      }));
       setTimeout(tryExtractFromEmbedded,    1500);
       setTimeout(tryExtractFromDomEmbedded, 1800);
       setTimeout(() => { if (!_embeddedDone) tryExtractFromEmbedded(); }, 4000);

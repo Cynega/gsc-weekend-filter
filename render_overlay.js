@@ -36,9 +36,9 @@
   let _loggedWait    = false;
   let _retryCount    = 0;
   let _retryTimer    = null;  // separate from _renderTimer — NOT cancelled by scheduleRender
-  let _routeChangedAt = 0;    // timestamp of last route change with no data yet
-  let _noticeTimer   = null;  // timer before showing the floating reload notice
-  const MAX_RETRIES  = 60;    // 60 × 2 s = 2 min of retries after panel loss
+  let _pendingRouteTimer = null; // debounce window: absorbs GSC's burst of replaceState calls
+  let _pendingRoute      = false; // true from route-change until user reloads or dismisses banner
+  const MAX_RETRIES  = 60;    // 60 × 300 ms = ~18 s of retries after panel loss
 
   // ── Floating reload notice ────────────────────────────────────────────────────
   // Shown when the panel disappears after a date range change and can't be
@@ -49,34 +49,24 @@
     const el = document.createElement('div');
     el.id = NOTICE_ID;
     el.setAttribute('data-gsc-wf-owned', '1');
-    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
-      'background:#1a73e8;color:#fff;' +
-      'font-family:Google Sans,Roboto,Arial,sans-serif;font-size:13px;' +
-      'padding:9px 16px;display:flex;align-items:center;gap:10px;' +
-      'box-shadow:0 2px 6px rgba(0,0,0,.3)';
+    el.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:2147483647;' +
+      'background:#fff;color:#202124;border:1px solid #dadce0;border-radius:8px;' +
+      'font-family:Google Sans,Roboto,Arial,sans-serif;font-size:12px;' +
+      'padding:8px 10px 8px 12px;display:flex;align-items:center;gap:8px;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,.18);max-width:280px';
     el.innerHTML =
-      '<span style="flex:1"><strong>Business Days View</strong> — date range changed — ' +
+      '<span style="flex:1;line-height:1.4"><strong style="color:#1a73e8">BDV</strong> — ' +
       '<a href="" onclick="location.reload();return false" ' +
-      'style="color:#fff;font-weight:600;text-decoration:underline">reload page</a> to update</span>' +
+      'style="color:#1a73e8;font-weight:600;text-decoration:none">reload</a> to update range</span>' +
       '<button onclick="document.getElementById(\'' + NOTICE_ID + '\').remove()" ' +
-      'style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;' +
-      'padding:0 4px;line-height:1;opacity:.8">×</button>';
+      'style="background:none;border:none;color:#80868b;font-size:16px;cursor:pointer;' +
+      'padding:0 2px;line-height:1;flex-shrink:0">×</button>';
     document.body.appendChild(el);
     console.debug('[GSC-WF] reload notice shown');
   }
 
   function hideReloadNotice() {
     document.getElementById(NOTICE_ID)?.remove();
-    if (_noticeTimer) { clearTimeout(_noticeTimer); _noticeTimer = null; }
-  }
-
-  // Schedule the notice after a delay — cancelled if data arrives first.
-  function scheduleNotice(delaySec) {
-    if (_noticeTimer) return; // already scheduled
-    _noticeTimer = setTimeout(() => {
-      _noticeTimer = null;
-      if (!_filtered) showReloadNotice();
-    }, delaySec * 1000);
   }
 
   // ── Event listeners ───────────────────────────────────────────────────────────
@@ -90,24 +80,73 @@
     }
   });
 
+  // Primary SPA navigation signal, dispatched by injected.js (MAIN world).
+  // injected.js shares GSC's JS context so its pushState/replaceState wrappers
+  // actually intercept page navigations — isolated-world history patches do not.
+  window.addEventListener('gsc-wf-route-change', (e) => {
+    if (!_cfg.enabled) return;
+
+    // Absorb GSC's burst of replaceState calls (typically 2–4 in ~100 ms).
+    const firstInBurst = !_pendingRouteTimer;
+    clearTimeout(_pendingRouteTimer);
+    _pendingRouteTimer = setTimeout(() => { _pendingRouteTimer = null; }, 300);
+    if (!firstInBurst) {
+      console.debug('[GSC-WF] route-change: burst-dedup');
+      return;
+    }
+
+    _pendingRoute = true;
+    _lastSig      = '';
+    _loggedWait   = false;
+    _retryCount   = 0;
+    clearTimeout(_retryTimer); _retryTimer = null;
+    // Show the reload banner immediately. GSC's DOM replacement timing is not
+    // reliably predictable; mounting now risks being wiped. The panel continues
+    // to display the previous range until reload.
+    showReloadNotice();
+    console.debug('[GSC-WF] route-change: nav started, reload notice shown',
+      '| href:', (e.detail?.href ?? '').substring(0, 80),
+      '| rawRows:', !!_rawRows, '| filtered:', !!_filtered);
+  });
+
   window.addEventListener('gsc-wf-raw-series', (e) => {
-    console.debug('[GSC-WF] raw-series event received, rows:', e.detail?.rows?.length ?? 0);
     const rows = e.detail?.rows;
     if (!Array.isArray(rows) || !rows.length) return;
-    _rawRows        = rows;
-    _filtered       = buildFiltered(rows, _cfg);
-    _retryCount     = 0;
-    _loggedWait     = false;
-    _routeChangedAt = 0;
-    hideReloadNotice();
-    console.debug(`[GSC-WF] filtered series built: ${_filtered.shownDays} business days of ${_filtered.totalDays}`);
-    // If the panel isn't in the DOM yet, discard any pending retry timer so the
-    // scheduleRender below triggers a fresh, immediate mount attempt rather than
-    // waiting for the old timer to fire.
-    if (!document.getElementById(PANEL_ID)) {
-      clearTimeout(_retryTimer); _retryTimer = null;
+
+    console.debug('[GSC-WF] raw-series: rows=', rows.length,
+      '| panel in DOM:', !!document.getElementById(PANEL_ID),
+      '| pendingRoute:', _pendingRoute);
+
+    const wasRoutePending = _pendingRoute;
+
+    _rawRows    = rows;
+    _filtered   = buildFiltered(rows, _cfg);
+    // Keep _pendingRoute=true if it was set by a route-change — the banner stays
+    // visible until the user reloads or dismisses it. Clearing it here would let
+    // a second gsc-wf-raw-series event (injected.js can fire it more than once)
+    // call hideReloadNotice() and silently remove the banner.
+    if (!wasRoutePending) _pendingRoute = false;
+    _retryCount = 0;
+    _loggedWait = false;
+    clearTimeout(_pendingRouteTimer); _pendingRouteTimer = null;
+    console.debug(`[GSC-WF] raw-series: filtered ${_filtered.shownDays}/${_filtered.totalDays} days`,
+      '| wasRoutePending:', wasRoutePending,
+      '| panel:', !!document.getElementById(PANEL_ID));
+
+    if (wasRoutePending) {
+      // Data arrived after a date-range change. The reload banner is already
+      // visible. Store the fresh data but do not attempt to mount: GSC may still
+      // be rebuilding its DOM and any panel we insert would be wiped immediately.
+      // The stored _rawRows/_filtered will be used on the next page load.
+      console.debug('[GSC-WF] raw-series: route pending → data stored, banner stays');
+    } else {
+      // No navigation in flight: update the existing panel or mount fresh (first load).
+      hideReloadNotice();
+      if (!document.getElementById(PANEL_ID)) {
+        clearTimeout(_retryTimer); _retryTimer = null;
+      }
+      scheduleRender('data-change');
     }
-    scheduleRender('data-change');
   });
 
   // ── Data model ────────────────────────────────────────────────────────────────
@@ -389,18 +428,6 @@
     </div>`;
   }
 
-  function buildWaitingHTML(hint) {
-    let msg;
-    if (hint === 'reload') {
-      msg = 'date range changed — <a href="" onclick="location.reload();return false" '
-          + 'style="color:#1a73e8;font-weight:500;text-decoration:none">reload page</a> to update';
-    }
-    return `<div style="font-family:'Google Sans',Roboto,Arial,sans-serif;background:#f8f9fa;
-                         border:1px solid #dadce0;border-radius:8px;padding:16px;color:#5f6368;font-size:13px">
-      <strong style="color:#202124">Business Days View</strong>&nbsp;— ${msg || 'waiting for daily chart data…'}
-    </div>`;
-  }
-
   // ── Mount target detection ────────────────────────────────────────────────────
   // Find the OUTER GSC performance section: the ancestor of the chart SVG whose
   // top edge is at least MIN_ABOVE_PX above the SVG (meaning it contains the
@@ -604,20 +631,8 @@
       return;
     }
 
-    // ── 6. No filtered data → waiting state ─────────────────────────────────────
-    if (!_filtered) {
-      const elapsed = _routeChangedAt ? Date.now() - _routeChangedAt : 0;
-      panel.innerHTML = buildWaitingHTML(elapsed > 7000 ? 'reload' : null);
-      if (!_loggedWait) {
-        console.debug('[GSC-WF] waiting for daily view');
-        _loggedWait = true;
-        if (_routeChangedAt) {
-          // Schedule a re-render after 8 s to show the reload prompt if data still missing
-          setTimeout(() => { if (!_filtered) scheduleRender('data-timeout'); }, 8000);
-        }
-      }
-      return;
-    }
+    // ── 6. No filtered data yet → defer until data arrives ──────────────────────
+    if (!_filtered) return;
 
     // ── 7. Idempotent render ─────────────────────────────────────────────────────
     const sig = renderSig();
@@ -641,23 +656,6 @@
   // ── Debounced scheduler ───────────────────────────────────────────────────────
 
   function scheduleRender(reason) {
-    // Route changes (date range, view, navigation) invalidate stale series data.
-    if (reason === 'route-change') {
-      _rawRows        = null;
-      _filtered       = null;
-      _lastSig        = '';
-      _loggedWait     = false;
-      _retryCount     = 0;
-      clearTimeout(_retryTimer); _retryTimer = null;
-      _routeChangedAt = Date.now();
-      // Do NOT clear _nativeEl here: if GSC reuses the same container element
-      // (common for in-page date range changes), the panel stays mounted and
-      // shows "waiting" immediately. If the element gets replaced, the
-      // MutationObserver catches it and clears _nativeEl then.
-      scheduleNotice(8); // show floating banner if no data in 8 s
-      console.debug('[GSC-WF] route changed');
-    }
-
     // Coalesce concurrent calls: if render is in progress, queue one follow-up.
     if (_renderActive) { _pendingRender = true; return; }
 
@@ -671,16 +669,22 @@
         _renderActive = false;
         if (_pendingRender) scheduleRender('deferred');
       }
-    }, reason === 'layout-stabilization' ? 600 : reason === 'data-change' ? 50 : 350);
+    }, reason === 'layout-stabilization' ? 600
+     : reason === 'data-change' ? 50
+     : 350);
   }
 
   // ── SPA navigation detection ──────────────────────────────────────────────────
+  // Primary signal: gsc-wf-route-change dispatched by injected.js (MAIN world).
+  // Isolated-world pushState/replaceState patches do NOT intercept GSC's calls
+  // because GSC runs in MAIN world and the two worlds have separate JS contexts.
+  // popstate is a DOM event that crosses worlds — used as backup for browser
+  // back/forward navigation.
 
   (function hookHistory() {
-    const orig = { push: history.pushState.bind(history), replace: history.replaceState.bind(history) };
-    history.pushState = function (...a) { orig.push(...a);    scheduleRender('route-change'); };
-    history.replaceState = function (...a) { orig.replace(...a); scheduleRender('route-change'); };
-    window.addEventListener('popstate', () => scheduleRender('route-change'));
+    window.addEventListener('popstate', () => {
+      if (!_pendingRoute) scheduleRender('panel-removed');
+    });
   })();
 
   // ── MutationObserver ──────────────────────────────────────────────────────────
@@ -696,8 +700,11 @@
       // Native section node was replaced by GSC (SPA rerender)
       if (_nativeEl && !document.contains(_nativeEl)) {
         _nativeEl = null;
-        scheduleNotice(5);
-        scheduleRender('native-replaced');
+        console.debug('[GSC-WF] observer: native replaced | pendingRoute:', _pendingRoute);
+        if (!_pendingRoute) {
+          clearTimeout(_debounceTimer);
+          _debounceTimer = setTimeout(() => scheduleRender('native-replaced'), 200);
+        }
         return;
       }
 
@@ -707,27 +714,14 @@
       // Nothing changed that concerns us — panel and native section both present
       if (!mountRowGone && !panelGone && _nativeEl && document.contains(_nativeEl)) return;
 
-      if (mountRowGone) scheduleNotice(5);
+      console.debug('[GSC-WF] observer: panel/row gone',
+        '| mountRowGone:', mountRowGone, '| panelGone:', panelGone,
+        '| filtered:', !!_filtered, '| pendingRoute:', _pendingRoute);
 
-      // Panel is gone — check if GSC's chart SVG has already (re)appeared.
-      // This is the fast path: if the new chart is visible, mount immediately
-      // instead of waiting for the _retryTimer. We must check this EVEN WHEN
-      // the mount row is gone (previously the early `return` blocked this).
-      if (panelGone) {
-        const hasBigSvg = [...document.querySelectorAll('svg')].some(s => {
-          if (s.closest('[data-gsc-wf-owned]')) return false;
-          const r = s.getBoundingClientRect();
-          return r.width >= 200 && r.height >= 50;
-        });
-        if (hasBigSvg) {
-          clearTimeout(_debounceTimer);
-          _debounceTimer = setTimeout(() => scheduleRender('chart-appeared'), 200);
-          return;
-        }
-      }
-
-      // SVG not visible yet (chart still loading) or mount row gone — schedule a retry
-      if (mountRowGone || (panelGone && _filtered)) {
+      if ((mountRowGone || panelGone) && !_pendingRoute) {
+        // Only attempt remount when no navigation is in flight.
+        // During a date-range change (_pendingRoute=true) the reload banner is
+        // already shown; remounting would just flash and get wiped by GSC.
         clearTimeout(_debounceTimer);
         _debounceTimer = setTimeout(() => scheduleRender('panel-removed'), 200);
       }
