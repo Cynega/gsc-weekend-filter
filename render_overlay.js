@@ -382,6 +382,31 @@
     console.debug('[GSC-WF] tooltip ready');
   }
 
+  // ── CSV export ────────────────────────────────────────────────────────────────
+
+  function exportCSV(fd) {
+    const lines = ['Date,Clicks,Impressions,CTR,Position'];
+    for (const r of fd.businessDays) {
+      lines.push([
+        r.date,
+        r.clicks,
+        r.impressions,
+        (r.ctr * 100).toFixed(2) + '%',
+        r.position.toFixed(1),
+      ].join(','));
+    }
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    const start = fd.rows[0]?.date ?? '';
+    const end   = fd.rows[fd.rows.length - 1]?.date ?? '';
+    a.download  = `gsc-bdv_${start}_${end}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    console.debug('[GSC-WF] CSV exported:', fd.businessDays.length, 'rows');
+  }
+
   // ── Panel HTML builders ───────────────────────────────────────────────────────
 
   function buildPanelHTML(fd) {
@@ -416,10 +441,16 @@
           </span>
           ${rangeLabel ? `<span style="font-size:12px;color:#80868b;background:#f1f3f4;padding:2px 8px;border-radius:10px">${rangeLabel}</span>` : ''}
         </div>
-        <button data-gsc-wf-toggle style="font-size:12px;color:#1a73e8;background:#fff;
-          border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
-          ${toggleLabel}
-        </button>
+        <div style="display:flex;gap:8px">
+          <button data-gsc-wf-export style="font-size:12px;color:#1a73e8;background:#fff;
+            border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
+            Export CSV
+          </button>
+          <button data-gsc-wf-toggle style="font-size:12px;color:#1a73e8;background:#fff;
+            border:1px solid #dadce0;border-radius:4px;padding:5px 14px;cursor:pointer;line-height:1.4">
+            ${toggleLabel}
+          </button>
+        </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
       <div style="background:#fff;border:1px solid #dadce0;border-radius:4px;padding:8px 2px 4px">
@@ -617,6 +648,7 @@
       mountRow.appendChild(panel);
       panel.addEventListener('click', e => {
         if (e.target.closest('[data-gsc-wf-toggle]')) toggleNativeSection();
+        if (e.target.closest('[data-gsc-wf-export]') && _filtered) exportCSV(_filtered);
       });
       isNewPanel = true;
       _lastSig = ''; // force full render on new panel
