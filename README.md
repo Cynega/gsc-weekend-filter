@@ -16,6 +16,9 @@ This extension was built to make Google Search Console trend analysis clearer by
 - Removes Saturdays and/or Sundays from the chart
 - Optionally excludes public holidays (configurable by country)
 - Shows KPI cards and an interactive chart with hover tooltips
+- Shows what percentage of clicks and impressions happen on business days vs. the full period
+- Export filtered data as **CSV** (ready for Excel or Google Sheets)
+- Export the chart as a high-resolution **PNG** (ready for reports or slides)
 - Stores all preferences locally in the browser — no account or login required
 
 ## Chrome Web Store
