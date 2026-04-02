@@ -434,7 +434,7 @@
     const pctClicks      = totalClicks      > 0 ? Math.round(fd.totalClicks      / totalClicks      * 100) : null;
     const pctImpressions = totalImpressions > 0 ? Math.round(fd.totalImpressions / totalImpressions * 100) : null;
     const shareLabel = (pctClicks !== null && pctImpressions !== null)
-      ? `Business days account for <strong>${pctClicks}%</strong> of clicks and <strong>${pctImpressions}%</strong> of impressions &nbsp;·&nbsp; ${fd.shownDays} of ${fd.totalDays} days`
+      ? `<strong>${pctClicks}%</strong> of clicks and <strong>${pctImpressions}%</strong> of impressions happen on business days (vs. full ${fd.totalDays}-day period incl. weekends)`
       : '';
 
     const toggleLabel = _nativeHidden ? 'Show Google view' : 'Hide Google view';
